@@ -2,7 +2,6 @@
 package myproject;
 
 import java.io.File;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -13,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +39,8 @@ public class MainApplication {
 		ApplicationContext ctx = SpringApplication.run(MainApplication.class, args);
 		MainApplication mainApp = ctx.getBean(MainApplication.class);
 		mainApp.processInput();
+		logger.info("In main thread");
+		SpringApplication.exit(ctx);
 	}
 
 	public long processInput() throws InterruptedException {
@@ -47,13 +49,11 @@ public class MainApplication {
 
 		ConcurrentHashMap<Long, List<LogFileOutput>> concurrentMapForOutput = new ConcurrentHashMap<>();
 
-		ClassLoader classLoader = getClass().getClassLoader();
-		URL resource = classLoader.getResource(".");
-		File file = new File(resource.getFile());
-		if (file.isDirectory()) {
-			logger.info("Found src/main/resources {}", file.getAbsolutePath());
+		File fileDirectory = new File("/Users/Bash/my_github/Healofy/src/main/resources");
+		if (fileDirectory.isDirectory()) {
+			logger.info("Found Log directory {}", fileDirectory.getAbsolutePath());
 		} else {
-			logger.info("Not found the root path");
+			logger.info("Not found the directory path");
 		}
 		int emptCounter = 0;
 		final ExecutorService executorService = Executors.newFixedThreadPool(10);
@@ -61,16 +61,21 @@ public class MainApplication {
 		long startTime = System.currentTimeMillis();
 
 		while (true) {
-			File[] list = file.listFiles();
+			boolean exitCounterState = false;
+			File[] list = fileDirectory.listFiles();
 			if (list != null) {
 				for (File fileItem : list) {
 					if (fileStatusMap.containsKey(fileItem.getAbsolutePath())) {
 						logger.info("File already processed, go to other file");
-						continue;
+					} else {
+						logger.info("Path of fileItem {}", fileItem);
+						fileStatusMap.put(fileItem.getAbsolutePath(), true);
+						submitTask(fileItem, boundedExecutor, concurrentMapForOutput);
+						exitCounterState = true;
 					}
-					submitTask(fileItem, boundedExecutor, concurrentMapForOutput);
 				}
-			} else {
+			}
+			if (!exitCounterState) {
 				emptCounter++;
 			}
 			if (emptCounter == 2) {
@@ -78,14 +83,14 @@ public class MainApplication {
 			}
 			Thread.sleep(5000); // sleep for 5s
 		}
-
+		logger.info("Awaiting termination of all threads");
 		while (!boundedExecutor.isReadyToTerminate()) {
 			logger.info("Awaiting termination of all threads");
 			Thread.sleep(TERMINATION_POLL_PERIOD);
 		}
 		logger.info("printing final state of concurrentHashMap");
 		printMapState(concurrentMapForOutput);
-		
+
 		boundedExecutor.shutdown();
 		long endTime = System.currentTimeMillis();
 		return endTime - startTime;
@@ -95,14 +100,15 @@ public class MainApplication {
 		logger.info(
 				"============================================================================================================");
 		logger.info("================================FINAL OUTPUT============================================");
-		for (Map.Entry<Long, List<LogFileOutput>> entry : concurrentMapForOutput.entrySet()) {
+		TreeMap<Long, List<LogFileOutput>> sortedMap = new TreeMap<>(concurrentMapForOutput);
+		for (Map.Entry<Long, List<LogFileOutput>> entry : sortedMap.entrySet()) {
 			String dateString = getTSinString(entry.getKey());
 			List<LogFileOutput> errorList = entry.getValue();
 			// segregate errors based on exception type
 			Map<String, Integer> exceptionTypeMap = new HashMap<>();
 			for (LogFileOutput out : errorList) {
 				if (exceptionTypeMap.containsKey(out.getException())) {
-					exceptionTypeMap.put(out.getException(), exceptionTypeMap.get(out.getException() + 1));
+					exceptionTypeMap.put(out.getException(), exceptionTypeMap.get(out.getException()) + 1);
 				} else {
 					exceptionTypeMap.put(out.getException(), 1);
 				}
@@ -114,6 +120,7 @@ public class MainApplication {
 	}
 
 	private String getTSinString(Long timestamp) {
+		timestamp = timestamp * 1000l;
 		Calendar calendar = Calendar.getInstance();
 		calendar.setTime(new Date());
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd hh:mm");
@@ -128,7 +135,9 @@ public class MainApplication {
 	private List<LogFileInput> convertFileFormatToList(File file) {
 		List<LogFileInput> logFileList = new ArrayList<>();
 		try {
-			List<String> allLines = Files.readAllLines(Paths.get("/Users/pankaj/Downloads/myfile.txt"));
+			logger.info("File path {}", file.getAbsolutePath());
+			List<String> allLines = Files.readAllLines(Paths.get(file.getAbsolutePath()));
+			logger.info("All lines size {}", allLines.size());
 			for (String line : allLines) {
 				logger.info(line);
 				String[] strings = line.split(",");
@@ -171,10 +180,11 @@ public class MainApplication {
 		List<LogFileInput> logFileList = convertFileFormatToList(file);
 		for (LogFileInput input : logFileList) {
 			long fifteenMinOffset = input.getTimestamp() / 1000;
-			fifteenMinOffset = fifteenMinOffset - fifteenMinOffset % 300;
-			if (concurrentMapForOutput.contains(fifteenMinOffset)) {
+			fifteenMinOffset = fifteenMinOffset - fifteenMinOffset % 900;
+			if (concurrentMapForOutput.containsKey(fifteenMinOffset)) {
 				List<LogFileOutput> outRecords = concurrentMapForOutput.get(fifteenMinOffset);
 				outRecords.add(new LogFileOutput(input.getTimestamp(), input.getException()));
+				concurrentMapForOutput.put(fifteenMinOffset, outRecords);
 			} else {
 				List<LogFileOutput> outRecords = new ArrayList<>();
 				outRecords.add(new LogFileOutput(input.getTimestamp(), input.getException()));

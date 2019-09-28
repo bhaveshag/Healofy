@@ -27,18 +27,18 @@ dependencies {
     //compile("org.springframework.boot:spring-boot-starter-web") {
     //    exclude module: "spring-boot-starter-tomcat"
     //}
-    compile("org.springframework.boot:spring-boot-starter-jetty")
+    //compile("org.springframework.boot:spring-boot-starter-jetty")
     // end::jetty[]
     // tag::actuator[]
-    compile("org.springframework.boot:spring-boot-starter-actuator")
+    //compile("org.springframework.boot:spring-boot-starter-actuator")
     // end::actuator[]
-	compile("org.springframework.boot:spring-boot-starter-web")
-	compile("org.springframework:spring-jdbc");
+	//compile("org.springframework.boot:spring-boot-starter-web")
+	//compile("org.springframework:spring-jdbc");
     compile("org.springframework.boot:spring-boot-starter-thymeleaf")
-    compile("org.springframework.boot:spring-boot-devtools")
-	compile("com.opencsv:opencsv:4.0")
-	compile("mysql:mysql-connector-java:6.0.6")
+    //compile("org.springframework.boot:spring-boot-devtools")
+	//compile("com.opencsv:opencsv:4.0")
+	//compile("mysql:mysql-connector-java:6.0.6")
 	// https://mvnrepository.com/artifact/org.apache.httpcomponents/httpclient
-	compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5'
+	//compile group: 'org.apache.httpcomponents', name: 'httpclient', version: '4.5'
     testCompile("junit:junit")
 }
