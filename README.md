@@ -1,4 +1,4 @@
-## Library Management System
+## Concurrent reading of logs
 
 ### Prerequisites
 
@@ -25,9 +25,10 @@ The application has to be configured to connect to the database. Specify the con
 
 ### Build application
 
-`./gradlew build`
+`./gradlew clean build`
 
 ### Run application
-`java -jar build/libs/library-0.1.0.jar`
 
-Go to `localhost:8080` on your web browser 
+`./gradlew bootRun`
+
+
